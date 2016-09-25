@@ -1,0 +1,83 @@
+﻿ using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Net;
+using System.Diagnostics;
+
+namespace messages
+{
+    // 2013-01-07: added lognum everywhere
+    // modified msgplus to submit messages to lognum 0 and 1
+    // messages.exe takes lognum as first param
+    // default lognum is 0 everywhere
+    class Webcall
+    {
+        public static int retry = 0;
+        public static readonly int maxretry = 2;
+
+        public static string PopAndKeep(string lognum)
+        {
+            return Pop(true, lognum);
+        }
+
+        public static string Pop(string lognum)
+        {
+            return Pop(false, lognum);
+        }
+
+        public static string Pop(bool keep = false, string lognum = "0")
+        {
+            var qkeep = keep ? "1" : "0";
+            var url = String.Format("http://example.com/messages/?action=pop&keep={0}&lognum={1}", qkeep, lognum);
+            var contents = "";
+            var fail = false;
+            try
+            {
+                var webclient = new WebClient();
+                webclient.Proxy = null;
+                contents = webclient.DownloadString(url);
+            }
+            catch (WebException ex)
+            {
+                fail = true;
+                var msg = "mk: messages: " + ex.ToString();
+                Trace.WriteLine(msg);
+                contents = msg + "\n";
+            }
+
+            // 2013-01-08: ignore random http errors
+            if (fail)
+            {
+                retry += 1;
+                if (retry <= maxretry)
+                {
+                    Trace.WriteLine(String.Format("ignoring fail, retry count = {0}", retry));
+                    contents = "";
+                }
+            }
+            else
+            {
+                retry = 0;
+            }
+
+            contents = contents.Replace("\n","\r\n");
+            
+            return contents;
+
+            /*var lines = contents.Split('\n');
+            var result = new List<string>();
+
+            foreach (var line in lines)
+            {
+                if (line != "")
+                {
+                    result.Add(line);
+                }
+            }
+
+            //foreach (var line in result) Console.WriteLine("*" + line);
+            return result;*/
+        }
+    }
+}
